@@ -6,31 +6,69 @@ var Identity = function(){
 
 Identity.prototype.generateKeyPair = function(p, q){
   /* Should calculate the private and public key, and store them on the Identity */
+  this.modulus = p * q;
+  var phi = (p - 1) * (q - 1);
+  this.publicKey = findCoprime(phi);
+  this.privateKey = calculateModInverse(this.publicKey, phi);
+
 };
 
+/**
+ * Generate a signature as the text encrypted with the SENDER's private_key/modulus pair
+ */
 Identity.prototype.signMessage = function(text){
   /* Given text, generate and return the senders signature */
+  return encryptMessage(text, this.privateKey, this.modulus);
 };
 
 Identity.prototype.sendMessage = function(plaintext, recipient){
   /* Given plaintext and a recipient, sendMessage should follow all the necessary protocols for it to be securely sent, and then send the message */
   /* (Hint: look at receiveMessage) */
+  var ciphertext = encryptMessage(plaintext, recipient.publicKey, recipient.modulus),
+      signature = this.signMessage(ciphertext);
+
+  recipient.receiveMessage(ciphertext, signature, this);
+  return {signature: signature, ciphertext: ciphertext, sender: this };
 };
 
 Identity.prototype.receiveMessage = function(ciphertext, signature, sender){
   /* Given the ciphertext, signature, and sender, receiveMessage should determine the integrity of the message and selectively read and return the content. */
+  if ( confirmAuthenticity(ciphertext, signature, sender.publicKey, sender.modulus) ) {
+    return decryptMessage(ciphertext, this.privateKey, this.modulus);
+
+  } else {
+    var errorMsg = 'Identity not authenticated';
+    console.log(errorMsg);
+    return errorMsg;
+  }
 };
 
 var encryptMessage = function(plaintext, key, modulus){
   /* Should turn plaintext into ciphertext according to the RSA protocol and return it */
+  var ciphertext = '',
+    encryptedNumber;
+  for (var i = 0, l = plaintext.length; i < l; i++) {
+    encryptedNumber = Math.pow(letterToNumber(plaintext[i]), key) % modulus;
+    ciphertext += numberToLetter(encryptedNumber);
+  }
+  return ciphertext;
 };
 
 var decryptMessage = function(ciphertext, key, modulus){
   /* Should turn ciphertext into plaintext according to the RSA protocol and return it */
+  var decrytedText = '',
+      decrytedNumber;
+  for (var i = 0, l = ciphertext.length; i < l; i++) {
+    decrytedNumber = Math.pow(letterToNumber(ciphertext[i]), key) % modulus;
+    decrytedText += numberToLetter(decrytedNumber);
+  }
+  return decrytedText;
 };
 
-var confirmAuthenticity = function(text, signature, key, modulus){
+var confirmAuthenticity = function(ciphertext, signature, key, modulus){
   /* Should confirm that the sender is who they claim to be */
+  var decryptedSig = decryptMessage(signature, key, modulus);
+  return decryptedSig === ciphertext;
 };
 
 /*******************************************/
